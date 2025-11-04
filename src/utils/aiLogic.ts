@@ -1,16 +1,14 @@
 import { Piece, Position, GameMode } from '../types/chess';
 import { getValidMoves } from './moveValidation';
 import { isKingInCheck, isCheckmate } from './gameStateUtils';
-
-// Enhanced piece values for better evaluation
-const PIECE_VALUES = {
-  pawn: 100,
-  knight: 320,
-  bishop: 330,
-  rook: 500,
-  queen: 900,
-  king: 20000
-};
+import { cloneBoard } from './boardUtils';
+import { 
+  PIECE_VALUES, 
+  AI_DEPTH, 
+  AI_RANDOMNESS, 
+  CHECKMATE_SCORE, 
+  CHECK_BONUS 
+} from '../constants/chess';
 
 // Position bonus matrices for each piece type
 const POSITION_BONUS = {
@@ -79,13 +77,13 @@ const evaluateBoard = (board: (Piece | null)[][], checkmatePriority: boolean): n
   const endgame = isEndgame(board);
 
   // Check for checkmate
-  if (isCheckmate(board, 'white')) return 100000;
-  if (isCheckmate(board, 'black')) return -100000;
+  if (isCheckmate(board, 'white')) return CHECKMATE_SCORE;
+  if (isCheckmate(board, 'black')) return -CHECKMATE_SCORE;
 
   // Check for check
   if (checkmatePriority) {
-    if (isKingInCheck(board, 'white')) score -= 500;
-    if (isKingInCheck(board, 'black')) score += 500;
+    if (isKingInCheck(board, 'white')) score -= CHECK_BONUS;
+    if (isKingInCheck(board, 'black')) score += CHECK_BONUS;
   }
 
   for (let y = 0; y < 8; y++) {
@@ -105,18 +103,11 @@ const evaluateBoard = (board: (Piece | null)[][], checkmatePriority: boolean): n
 export const getBestMove = (
   board: (Piece | null)[][],
   difficulty: GameMode,
-  capturedPieces: Piece[] = []
+  _capturedPieces: Piece[] = []
 ): { from: Position; to: Position } | null => {
   const moves = getAllValidMoves(board, 'black');
   
   if (moves.length === 0) return null;
-
-  const depthMap: Record<GameMode, number> = {
-    easy: 2,
-    medium: 3,
-    hard: 4,
-    grandmaster: 5
-  };
 
   const checkmatePriority = difficulty !== 'easy';
   let bestMove = moves[0];
@@ -126,7 +117,7 @@ export const getBestMove = (
     const newBoard = makeMove(board, move.from, move.to);
     const score = minimax(
       newBoard,
-      depthMap[difficulty],
+      AI_DEPTH[difficulty],
       -Infinity,
       Infinity,
       false,
@@ -134,14 +125,7 @@ export const getBestMove = (
     );
 
     // Add randomization for lower difficulties
-    const randomFactor = {
-      easy: 300,
-      medium: 150,
-      hard: 50,
-      grandmaster: 0
-    }[difficulty];
-
-    const adjustedScore = score + (Math.random() - 0.5) * randomFactor;
+    const adjustedScore = score + (Math.random() - 0.5) * AI_RANDOMNESS[difficulty];
 
     if (adjustedScore > bestScore) {
       bestScore = adjustedScore;
@@ -168,7 +152,7 @@ const minimax = (
   if (moves.length === 0) {
     // Checkmate or stalemate
     if (isKingInCheck(board, isMaximizing ? 'black' : 'white')) {
-      return isMaximizing ? -100000 : 100000;
+      return isMaximizing ? -CHECKMATE_SCORE : CHECKMATE_SCORE;
     }
     return 0; // Stalemate
   }
@@ -230,7 +214,7 @@ const getAllValidMoves = (board: (Piece | null)[][], color: 'white' | 'black'): 
 
 // Make a move on a board copy
 const makeMove = (board: (Piece | null)[][], from: Position, to: Position): (Piece | null)[][] => {
-  const newBoard = board.map(row => [...row]);
+  const newBoard = cloneBoard(board);
   newBoard[to.y][to.x] = newBoard[from.y][from.x];
   newBoard[from.y][from.x] = null;
   return newBoard;

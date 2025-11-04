@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GameMode, ThemeType, Piece, Position } from '../types';
+import { GameMode, ThemeType, Piece, Position, PieceType } from '../types';
 import { getValidMoves, getInitialBoard } from '../utils/chessLogic';
 import { getBestMove } from '../utils/aiLogic';
 import { themes } from '../utils/themes';
@@ -9,10 +9,12 @@ import { CapturedPieces } from './CapturedPieces';
 import { WinProbability } from './game/WinProbability';
 import { GameNotification } from './game/GameNotification';
 import { GameEndScreen } from './game/GameEndScreen';
+import { PromotionModal } from './PromotionModal';
 import { getPieceSymbol } from '../utils/pieceUtils';
-import { isKingInCheck, isCheckmate, validateMove } from '../utils/gameStateUtils';
+import { isKingInCheck, isCheckmate } from '../utils/gameStateUtils';
 import { evaluatePosition, calculateWinProbability } from '../utils/evaluationUtils';
-import { calculateGameStats } from '../utils/gameAnalysis';
+import { cloneBoard } from '../utils/boardUtils';
+import { AI_THINKING_DELAY, NOTIFICATION_DURATION } from '../constants/chess';
 
 interface ChessBoardProps {
   gameMode: GameMode;
@@ -36,68 +38,107 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({ gameMode, theme }) => {
   const [showNotification, setShowNotification] = useState(false);
   const [notificationType, setNotificationType] = useState<'check' | 'checkmate' | 'draw' | 'win' | 'lose'>('check');
   const [showEndScreen, setShowEndScreen] = useState(false);
-  const [gameStats, setGameStats] = useState({
+  const [gameStats] = useState({
     accuracy: 85.5,
     mistakes: 2,
     averageTime: 15,
     openingName: 'Queen\'s Gambit'
   });
+  
+  // Pawn promotion state
+  const [showPromotionModal, setShowPromotionModal] = useState(false);
+  const [promotionMove, setPromotionMove] = useState<{ from: Position; to: Position } | null>(null);
+  const [promotionColor, setPromotionColor] = useState<'white' | 'black'>('white');
 
-  useEffect(() => {
-    if (turn === 'black' && !gameState.isCheckmate && !gameState.isDraw) {
-      makeAIMove();
-    }
-  }, [turn]);
-
-  useEffect(() => {
+  // Memoize win probability calculation
+  const calculatedWinProbability = useMemo(() => {
     const evaluation = evaluatePosition(board);
-    const probability = calculateWinProbability(evaluation);
-    setWinProbability(probability);
+    return calculateWinProbability(evaluation);
+  }, [board]);
 
-    // Check game state
+  // Memoize game state checks
+  const calculatedGameState = useMemo(() => {
     const whiteInCheck = isKingInCheck(board, 'white');
     const blackInCheck = isKingInCheck(board, 'black');
     const whiteCheckmated = isCheckmate(board, 'white');
     const blackCheckmated = isCheckmate(board, 'black');
 
-    if (whiteCheckmated || blackCheckmated) {
-      setGameState(prev => ({
-        ...prev,
-        isCheckmate: true,
-        winner: whiteCheckmated ? 'black' : 'white'
-      }));
-      setNotificationType(whiteCheckmated ? 'lose' : 'win');
-      setShowNotification(true);
-      setShowEndScreen(true);
-    } else if (whiteInCheck || blackInCheck) {
-      setGameState(prev => ({ ...prev, isCheck: true }));
-      setNotificationType('check');
-      setShowNotification(true);
-      setTimeout(() => setShowNotification(false), 2500);
-    }
+    return {
+      isCheck: whiteInCheck || blackInCheck,
+      isCheckmate: whiteCheckmated || blackCheckmated,
+      isDraw: false,
+      winner: whiteCheckmated ? 'black' as const : blackCheckmated ? 'white' as const : null
+    };
   }, [board]);
 
-  const makeAIMove = async () => {
+  // Update win probability when calculated
+  useEffect(() => {
+    setWinProbability(calculatedWinProbability);
+  }, [calculatedWinProbability]);
+
+  // Update game state and notifications
+  useEffect(() => {
+    if (calculatedGameState.isCheckmate) {
+      setGameState(calculatedGameState);
+      setNotificationType(calculatedGameState.winner === 'white' ? 'win' : 'lose');
+      setShowNotification(true);
+      setShowEndScreen(true);
+    } else if (calculatedGameState.isCheck) {
+      setGameState(calculatedGameState);
+      setNotificationType('check');
+      setShowNotification(true);
+      setTimeout(() => setShowNotification(false), NOTIFICATION_DURATION);
+    } else {
+      setGameState(calculatedGameState);
+    }
+  }, [calculatedGameState]);
+
+  // AI move trigger
+  useEffect(() => {
+    if (turn === 'black' && !calculatedGameState.isCheckmate && !calculatedGameState.isDraw) {
+      makeAIMove();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turn, calculatedGameState.isCheckmate, calculatedGameState.isDraw]);
+
+  const executeMove = useCallback((from: Position, to: Position, promotionType?: PieceType) => {
+    const capturedPiece = board[to.y][to.x];
+    const newBoard = cloneBoard(board);
+    
+    if (capturedPiece) {
+      setCapturedPieces(prev => [...prev, capturedPiece]);
+    }
+    
+    newBoard[to.y][to.x] = newBoard[from.y][from.x];
+    
+    // Apply promotion
+    if (promotionType && newBoard[to.y][to.x]) {
+      newBoard[to.y][to.x]!.type = promotionType;
+    }
+    
+    newBoard[from.y][from.x] = null;
+    setBoard(newBoard);
+    setTurn(prev => prev === 'white' ? 'black' : 'white');
+  }, [board]);
+
+  const makeAIMove = useCallback(async () => {
     setIsThinking(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, AI_THINKING_DELAY));
     
     const aiMove = getBestMove(board, gameMode, capturedPieces);
     if (aiMove) {
       const { from, to } = aiMove;
-      const capturedPiece = board[to.y][to.x];
-      const newBoard = board.map(row => [...row]);
+      const movingPiece = board[from.y][from.x];
       
-      if (capturedPiece) {
-        setCapturedPieces([...capturedPieces, capturedPiece]);
+      // Check for AI pawn promotion (auto-promote to queen)
+      if (movingPiece?.type === 'pawn' && to.y === 0) {
+        executeMove(from, to, 'queen');
+      } else {
+        executeMove(from, to);
       }
-      
-      newBoard[to.y][to.x] = newBoard[from.y][from.x];
-      newBoard[from.y][from.x] = null;
-      setBoard(newBoard);
-      setTurn('white');
     }
     setIsThinking(false);
-  };
+  }, [board, gameMode, capturedPieces, executeMove]);
 
   const handleSquareClick = (position: Position) => {
     if (turn === 'black' || gameState.isCheckmate || gameState.isDraw) return;
@@ -115,22 +156,33 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({ gameMode, theme }) => {
       );
 
       if (isValidMove) {
-        const capturedPiece = board[position.y][position.x];
-        const newBoard = board.map(row => [...row]);
+        const movingPiece = board[selectedSquare.y][selectedSquare.x];
         
-        if (capturedPiece) {
-          setCapturedPieces([...capturedPieces, capturedPiece]);
+        // Check for pawn promotion
+        if (movingPiece?.type === 'pawn' && (position.y === 0 || position.y === 7)) {
+          setPromotionMove({ from: selectedSquare, to: position });
+          setPromotionColor(movingPiece.color);
+          setShowPromotionModal(true);
+          return;
         }
         
-        newBoard[position.y][position.x] = newBoard[selectedSquare.y][selectedSquare.x];
-        newBoard[selectedSquare.y][selectedSquare.x] = null;
-        setBoard(newBoard);
-        setTurn('black');
+        // Normal move
+        executeMove(selectedSquare, position);
       }
       setSelectedSquare(null);
       setPossibleMoves([]);
     }
   };
+
+  const handlePromotion = useCallback((pieceType: PieceType) => {
+    if (promotionMove) {
+      executeMove(promotionMove.from, promotionMove.to, pieceType);
+      setShowPromotionModal(false);
+      setPromotionMove(null);
+      setSelectedSquare(null);
+      setPossibleMoves([]);
+    }
+  }, [promotionMove, executeMove]);
 
   const handlePlayAgain = () => {
     setBoard(getInitialBoard());
@@ -220,6 +272,13 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({ gameMode, theme }) => {
         type={notificationType}
         show={showNotification}
         onClose={() => setShowNotification(false)}
+      />
+
+      <PromotionModal
+        show={showPromotionModal}
+        color={promotionColor}
+        theme={theme}
+        onSelect={handlePromotion}
       />
 
       {showEndScreen && (

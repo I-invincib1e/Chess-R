@@ -8,7 +8,7 @@ interface GameInfoProps {
   gameMode: string;
 }
 
-export const GameInfo: React.FC<GameInfoProps> = ({ turn, isThinking, gameMode }) => {
+export const GameInfo = React.memo<GameInfoProps>(({ turn, isThinking, gameMode }) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: -20 }}
@@ -29,4 +29,4 @@ export const GameInfo: React.FC<GameInfoProps> = ({ turn, isThinking, gameMode }
       </div>
     </motion.div>
   );
-};
+});
