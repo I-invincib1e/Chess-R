@@ -1,5 +1,6 @@
 import { Piece, Position } from '../types/chess';
 import { isKingInCheck } from './gameStateUtils';
+import { cloneBoard } from './boardUtils';
 
 export const getPawnMoves = (from: Position, piece: Piece, board: (Piece | null)[][]): Position[] => {
   const moves: Position[] = [];
@@ -169,7 +170,7 @@ export const getValidMoves = (
   if (!checkValidation) {
     // Filter out moves that would put own king in check
     moves = moves.filter(to => {
-      const newBoard = board.map(row => [...row]);
+      const newBoard = cloneBoard(board);
       newBoard[to.y][to.x] = newBoard[from.y][from.x];
       newBoard[from.y][from.x] = null;
       return !isKingInCheck(newBoard, piece.color);

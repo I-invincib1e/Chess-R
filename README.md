@@ -71,6 +71,26 @@ A modern, responsive chess game with AI opponent built using React and TypeScrip
 - Position evaluation
 - Best move suggestions
 
+## Product Review & Improvement Suggestions
+
+Comprehensive analysis and improvement suggestions are available in the following documents:
+
+- **[PRODUCT_REVIEW_SUMMARY.md](PRODUCT_REVIEW_SUMMARY.md)** - Executive summary and roadmap
+- **[SUGGESTIONS.md](SUGGESTIONS.md)** - Detailed analysis of all improvements (prioritized)
+- **[QUICK_IMPROVEMENTS.md](QUICK_IMPROVEMENTS.md)** - Actionable checklist with time estimates
+- **[IMPLEMENTATION_EXAMPLES.md](IMPLEMENTATION_EXAMPLES.md)** - Complete code examples
+
+### Key Areas for Improvement
+
+1. **Missing Chess Rules** - Pawn promotion, castling, en passant
+2. **Performance** - Memoization, Web Workers for AI
+3. **Move History** - Undo/redo, algebraic notation, PGN export
+4. **AI Enhancements** - Opening book, transposition table, deeper search
+5. **UX Polish** - Drag-and-drop, sound effects, better animations
+6. **Testing** - Unit tests, integration tests, E2E tests
+
+See the documentation above for detailed implementation guides and code examples.
+
 ## Contributing
 
 1. Fork the repository

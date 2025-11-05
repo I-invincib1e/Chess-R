@@ -10,7 +10,7 @@ interface CapturedPiecesProps {
   theme: ThemeType;
 }
 
-export const CapturedPieces: React.FC<CapturedPiecesProps> = ({ pieces, side, theme }) => {
+export const CapturedPieces = React.memo<CapturedPiecesProps>(({ pieces, side, theme }) => {
   const getPieceSymbol = (piece: Piece): string => {
     const symbols: Record<string, string> = {
       'white-king': '♔', 'white-queen': '♕', 'white-rook': '♖',
@@ -41,4 +41,4 @@ export const CapturedPieces: React.FC<CapturedPiecesProps> = ({ pieces, side, th
       ))}
     </motion.div>
   );
-};
+});
