@@ -254,23 +254,6 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({ gameMode, theme }) => {
     }
   }, [promotionMove, executeMove]);
 
-  const handleUndo = useCallback(() => {
-    if (historyIndex < 0) return;
-    
-    // Go back one move (or two for player moves to undo both player and AI)
-    const newIndex = historyIndex - 2;
-    if (newIndex < -1) return;
-    
-    replayToIndex(newIndex);
-  }, [historyIndex]);
-
-  const handleRedo = useCallback(() => {
-    if (historyIndex >= moveHistory.length - 1) return;
-    
-    const newIndex = Math.min(historyIndex + 2, moveHistory.length - 1);
-    replayToIndex(newIndex);
-  }, [historyIndex, moveHistory.length]);
-
   const replayToIndex = useCallback((targetIndex: number) => {
     const newBoard = getInitialBoard();
     const newCaptured: Piece[] = [];
@@ -294,6 +277,23 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({ gameMode, theme }) => {
     setTurn(targetIndex % 2 === 0 ? 'black' : 'white');
     setHistoryIndex(targetIndex);
   }, [moveHistory]);
+
+  const handleUndo = useCallback(() => {
+    if (historyIndex < 0) return;
+    
+    // Go back one move (or two for player moves to undo both player and AI)
+    const newIndex = historyIndex - 2;
+    if (newIndex < -1) return;
+    
+    replayToIndex(newIndex);
+  }, [historyIndex, replayToIndex]);
+
+  const handleRedo = useCallback(() => {
+    if (historyIndex >= moveHistory.length - 1) return;
+    
+    const newIndex = Math.min(historyIndex + 2, moveHistory.length - 1);
+    replayToIndex(newIndex);
+  }, [historyIndex, moveHistory.length, replayToIndex]);
 
   const handleSaveGame = useCallback(() => {
     const result = gameState.isCheckmate 

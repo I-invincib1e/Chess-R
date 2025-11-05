@@ -104,6 +104,7 @@ const evaluateBoard = (board: (Piece | null)[][], checkmatePriority: boolean): n
 export const getBestMove = (
   board: (Piece | null)[][],
   difficulty: GameMode,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _capturedPieces: Piece[] = []
 ): { from: Position; to: Position } | null => {
   const moves = getAllValidMoves(board, 'black');
