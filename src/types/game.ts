@@ -1,3 +1,5 @@
+import { Position, Piece, PieceType } from './chess';
+
 export type TimeControl = {
   initial: number;
   increment: number;
@@ -36,3 +38,22 @@ export type GameStats = {
   averageTime: number;
   openingName: string;
 };
+
+export interface Move {
+  from: Position;
+  to: Position;
+  piece: Piece;
+  captured?: Piece;
+  promotion?: PieceType;
+  isCastling?: boolean;
+  isEnPassant?: boolean;
+  notation: string;
+  timestamp: number;
+}
+
+export interface CastlingRights {
+  whiteKingSide: boolean;
+  whiteQueenSide: boolean;
+  blackKingSide: boolean;
+  blackQueenSide: boolean;
+}

@@ -2,6 +2,7 @@ import { Piece, Position, GameMode } from '../types/chess';
 import { getValidMoves } from './moveValidation';
 import { isKingInCheck, isCheckmate } from './gameStateUtils';
 import { cloneBoard } from './boardUtils';
+import { transpositionTable, hashPosition } from './transpositionTable';
 import { 
   PIECE_VALUES, 
   AI_DEPTH, 
@@ -136,16 +137,91 @@ export const getBestMove = (
   return bestMove;
 };
 
-// Minimax algorithm with alpha-beta pruning
+// Quiescence search - continue searching tactical positions
+const quiescence = (
+  board: (Piece | null)[][],
+  alpha: number,
+  beta: number,
+  isMaximizing: boolean,
+  checkmatePriority: boolean
+): number => {
+  const standPat = evaluateBoard(board, checkmatePriority);
+  
+  if (isMaximizing) {
+    if (standPat >= beta) return beta;
+    if (alpha < standPat) alpha = standPat;
+  } else {
+    if (standPat <= alpha) return alpha;
+    if (beta > standPat) beta = standPat;
+  }
+
+  // Only consider captures and checks in quiescence search
+  const moves = getCaptureMoves(board, isMaximizing ? 'black' : 'white');
+  
+  for (const move of moves) {
+    const newBoard = makeMove(board, move.from, move.to);
+    const score = quiescence(newBoard, alpha, beta, !isMaximizing, checkmatePriority);
+    
+    if (isMaximizing) {
+      if (score >= beta) return beta;
+      if (score > alpha) alpha = score;
+    } else {
+      if (score <= alpha) return alpha;
+      if (score < beta) beta = score;
+    }
+  }
+  
+  return isMaximizing ? alpha : beta;
+};
+
+// Get only capture moves for quiescence search
+const getCaptureMoves = (board: (Piece | null)[][], color: 'white' | 'black'): Array<{
+  from: Position;
+  to: Position;
+}> => {
+  const moves = [];
+  for (let y = 0; y < 8; y++) {
+    for (let x = 0; x < 8; x++) {
+      const piece = board[y][x];
+      if (piece && piece.color === color) {
+        const validMoves = getValidMoves({ x, y }, piece, board);
+        validMoves.forEach(to => {
+          // Only include captures
+          if (board[to.y][to.x]) {
+            moves.push({ from: { x, y }, to });
+          }
+        });
+      }
+    }
+  }
+  return moves;
+};
+
+// Minimax algorithm with alpha-beta pruning, transposition table, and quiescence search
 const minimax = (
   board: (Piece | null)[][],
   depth: number,
   alpha: number,
   beta: number,
   isMaximizing: boolean,
-  checkmatePriority: boolean
+  checkmatePriority: boolean,
+  turn: 'white' | 'black' = 'black'
 ): number => {
-  if (depth === 0) return evaluateBoard(board, checkmatePriority);
+  // Check transposition table
+  const positionHash = hashPosition(board, turn);
+  const ttEntry = transpositionTable.get(positionHash);
+  
+  if (ttEntry && ttEntry.depth >= depth) {
+    if (ttEntry.flag === 'exact') return ttEntry.score;
+    if (ttEntry.flag === 'lowerbound') alpha = Math.max(alpha, ttEntry.score);
+    if (ttEntry.flag === 'upperbound') beta = Math.min(beta, ttEntry.score);
+    if (alpha >= beta) return ttEntry.score;
+  }
+
+  // At depth 0, use quiescence search instead of static evaluation
+  if (depth === 0) {
+    return quiescence(board, alpha, beta, isMaximizing, checkmatePriority);
+  }
 
   const moves = getAllValidMoves(board, isMaximizing ? 'black' : 'white');
   
@@ -157,8 +233,11 @@ const minimax = (
     return 0; // Stalemate
   }
 
+  let bestScore: number;
+  let flag: 'exact' | 'lowerbound' | 'upperbound' = 'exact';
+
   if (isMaximizing) {
-    let maxEval = -Infinity;
+    bestScore = -Infinity;
     for (const move of moves) {
       const evaluation = minimax(
         makeMove(board, move.from, move.to),
@@ -166,15 +245,18 @@ const minimax = (
         alpha,
         beta,
         false,
-        checkmatePriority
+        checkmatePriority,
+        'white'
       );
-      maxEval = Math.max(maxEval, evaluation);
+      bestScore = Math.max(bestScore, evaluation);
       alpha = Math.max(alpha, evaluation);
-      if (beta <= alpha) break;
+      if (beta <= alpha) {
+        flag = 'lowerbound';
+        break;
+      }
     }
-    return maxEval;
   } else {
-    let minEval = Infinity;
+    bestScore = Infinity;
     for (const move of moves) {
       const evaluation = minimax(
         makeMove(board, move.from, move.to),
@@ -182,14 +264,27 @@ const minimax = (
         alpha,
         beta,
         true,
-        checkmatePriority
+        checkmatePriority,
+        'black'
       );
-      minEval = Math.min(minEval, evaluation);
+      bestScore = Math.min(bestScore, evaluation);
       beta = Math.min(beta, evaluation);
-      if (beta <= alpha) break;
+      if (beta <= alpha) {
+        flag = 'upperbound';
+        break;
+      }
     }
-    return minEval;
   }
+
+  // Store in transposition table
+  transpositionTable.store({
+    zobristHash: positionHash,
+    depth,
+    score: bestScore,
+    flag
+  });
+
+  return bestScore;
 };
 
 // Helper function to get all valid moves
