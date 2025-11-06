@@ -1,31 +1,32 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { GameMode, ThemeType, Piece, Position, PieceType } from '../types';
-import { Move } from '../types/game';
-import { getValidMoves, getInitialBoard } from '../utils/chessLogic';
-import { getBestMove } from '../utils/aiLogic';
-import { themes } from '../utils/themes';
-import { GameNotification } from './game/GameNotification';
-import { GameEndScreen } from './game/GameEndScreen';
-import { PromotionModal } from './PromotionModal';
-import { getPieceSymbol } from '../utils/pieceUtils';
-import { isKingInCheck, isCheckmate } from '../utils/gameStateUtils';
-import { evaluatePosition, calculateWinProbability } from '../utils/evaluationUtils';
-import { cloneBoard } from '../utils/boardUtils';
-import { getAlgebraicNotation } from '../utils/notation';
-import { exportToPGN, downloadPGN, savePGNToLocalStorage } from '../utils/pgn';
-import { AI_THINKING_DELAY, NOTIFICATION_DURATION } from '../constants/chess';
+import { GameLayout } from './GameLayout';
+import { GameMode, ThemeType, Piece, Position, PieceType } from '../../types';
+import { Move } from '../../types/game';
+import { getValidMoves, getInitialBoard } from '../../utils/chessLogic';
+import { getBestMove } from '../../utils/aiLogic';
+import { themes } from '../../utils/themes';
+import { GameNotification } from './GameNotification';
+import { GameEndScreen } from './GameEndScreen';
+import { PromotionModal } from '../PromotionModal';
+import { getPieceSymbol } from '../../utils/pieceUtils';
+import { isKingInCheck, isCheckmate } from '../../utils/gameStateUtils';
+import { evaluatePosition, calculateWinProbability } from '../../utils/evaluationUtils';
+import { cloneBoard } from '../../utils/boardUtils';
+import { getAlgebraicNotation } from '../../utils/notation';
+import { exportToPGN, downloadPGN, savePGNToLocalStorage } from '../../utils/pgn';
+import { AI_THINKING_DELAY, NOTIFICATION_DURATION } from '../../constants/chess';
 
-interface ChessBoardProps {
+interface GameContainerProps {
   gameMode: GameMode;
   theme: ThemeType;
 }
 
-export const ChessBoard: React.FC<ChessBoardProps> = ({ gameMode, theme }) => {
+export const GameContainer: React.FC<GameContainerProps> = ({ gameMode, theme }) => {
   const [board, setBoard] = useState(getInitialBoard());
   const [selectedSquare, setSelectedSquare] = useState<Position | null>(null);
   const [possibleMoves, setPossibleMoves] = useState<Position[]>([]);
   const [turn, setTurn] = useState<'white' | 'black'>('white');
+  const [isThinking, setIsThinking] = useState(false);
   const [capturedPieces, setCapturedPieces] = useState<Piece[]>([]);
   const [winProbability, setWinProbability] = useState({ white: 50, black: 50 });
   const [gameState, setGameState] = useState({
@@ -286,59 +287,61 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({ gameMode, theme }) => {
     console.log('Game saved! Analysis feature coming soon.');
   };
 
-  return (
-    <div className="w-full flex flex-col items-center">
-      <motion.div 
-        className={`grid grid-cols-8 gap-0 border-4 ${themes[theme].board.border} rounded-lg overflow-hidden shadow-2xl w-full max-w-2xl aspect-square`}
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        {board.map((row, y) =>
-          row.map((piece, x) => {
-            const isSelected = selectedSquare?.x === x && selectedSquare?.y === y;
-            const isLight = (x + y) % 2 === 0;
-            const highlighted = possibleMoves.some(move => move.x === x && move.y === y);
+  // Simplified ChessBoard component
+  const SimpleChessBoard = () => {
+    return (
+      <div className="w-full flex flex-col items-center">
+        <div 
+          className={`grid grid-cols-8 gap-0 border-4 ${themes[theme].board.border} rounded-lg overflow-hidden shadow-2xl w-full max-w-2xl aspect-square`}
+        >
+          {board.map((row, y) =>
+            row.map((piece, x) => {
+              const isSelected = selectedSquare?.x === x && selectedSquare?.y === y;
+              const isLight = (x + y) % 2 === 0;
+              const highlighted = possibleMoves.some(move => move.x === x && move.y === y);
 
-            return (
-              <motion.div
-                key={`${x}-${y}`}
-                className={`w-full aspect-square flex items-center justify-center relative
-                  ${isLight ? themes[theme].board.light : themes[theme].board.dark}
-                  ${isSelected ? `ring-4 ${themes[theme].board.selected}` : ''}
-                  ${highlighted ? `ring-4 ${themes[theme].board.highlight}` : ''}
-                  cursor-pointer transition-all duration-200`}
-                onClick={() => handleSquareClick({ x, y })}
-                whileHover={{ scale: 1.05 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-              >
-                <AnimatePresence mode="wait">
+              return (
+                <div
+                  key={`${x}-${y}`}
+                  className={`w-full aspect-square flex items-center justify-center relative
+                    ${isLight ? themes[theme].board.light : themes[theme].board.dark}
+                    ${isSelected ? `ring-4 ${themes[theme].board.selected}` : ''}
+                    ${highlighted ? `ring-4 ${themes[theme].board.highlight}` : ''}
+                    cursor-pointer transition-all duration-200`}
+                  onClick={() => handleSquareClick({ x, y })}
+                >
                   {piece && (
-                    <motion.div
-                      key={`piece-${x}-${y}`}
-                      className={`text-3xl sm:text-4xl ${themes[theme].pieces[piece.color]}`}
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      exit={{ scale: 0 }}
-                      transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                    >
+                    <div className={`text-3xl sm:text-4xl ${themes[theme].pieces[piece.color]}`}>
                       {getPieceSymbol(piece)}
-                    </motion.div>
+                    </div>
                   )}
-                </AnimatePresence>
-                {highlighted && !piece && (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full ${themes[theme].board.possible}`}
-                  />
-                )}
-              </motion.div>
-            );
-          })
-        )}
-      </motion.div>
+                  {highlighted && !piece && (
+                    <div className={`w-3 h-3 sm:w-4 sm:h-4 rounded-full ${themes[theme].board.possible}`} />
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    );
+  };
 
+  return (
+    <GameLayout
+      gameMode={gameMode}
+      theme={theme}
+      board={board}
+      turn={turn}
+      isThinking={isThinking}
+      winProbability={winProbability}
+      capturedPieces={capturedPieces}
+      moveHistory={moveHistory}
+      historyIndex={historyIndex}
+      gameStats={gameStats}
+    >
+      <SimpleChessBoard />
+      
       <GameNotification
         type={notificationType}
         show={showNotification}
@@ -360,6 +363,6 @@ export const ChessBoard: React.FC<ChessBoardProps> = ({ gameMode, theme }) => {
           onAnalyze={handleAnalyze}
         />
       )}
-    </div>
+    </GameLayout>
   );
 };

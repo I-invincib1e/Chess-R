@@ -50,179 +50,164 @@ export const GameControls: React.FC<GameControlsProps> = ({
     }
   };
 
-  const getButtonClasses = (baseColor: string, enabled: boolean) => `
-    relative p-3 rounded-xl font-medium transition-all duration-200
-    ${enabled 
-      ? `bg-gradient-to-r ${baseColor} text-white shadow-lg hover:shadow-xl` 
-      : 'bg-zinc-800/50 text-zinc-600 cursor-not-allowed border border-zinc-700/50'
-    }
-    backdrop-blur-sm border border-white/10
-    before:absolute before:inset-0 before:rounded-xl before:bg-white/10 before:opacity-0 hover:before:opacity-20
-    before:transition-opacity before:duration-200
-  `;
-
   return (
     <motion.div 
-      className="flex flex-wrap gap-3 justify-center items-center p-4 bg-black/30 rounded-2xl backdrop-blur-md border border-white/10"
+      className="flex items-center justify-center gap-2 p-3 bg-black/30 backdrop-blur-md border border-white/10 rounded-xl"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      {/* Undo Button */}
-      <motion.button
-        variants={buttonVariants}
-        initial="enabled"
-        whileHover={canUndo ? "hover" : "disabled"}
-        whileTap={canUndo ? "tap" : "disabled"}
-        animate={canUndo ? "enabled" : "disabled"}
-        className={getButtonClasses("from-blue-600 to-blue-700", canUndo)}
-        onClick={onUndo}
-        disabled={!canUndo}
-        title="Undo (take back your last move)"
-      >
-        <div className="flex items-center gap-2">
-          <Undo className="w-5 h-5" />
-          <span className="hidden sm:inline text-sm">Undo</span>
+      {/* Primary Actions */}
+      <div className="flex items-center gap-2">
+        {/* Undo/Redo Group */}
+        <div className="flex items-center bg-white/5 rounded-lg p-1">
+          <motion.button
+            variants={buttonVariants}
+            initial="enabled"
+            whileHover={canUndo ? "hover" : "disabled"}
+            whileTap={canUndo ? "tap" : "disabled"}
+            animate={canUndo ? "enabled" : "disabled"}
+            className={`p-2 rounded-md transition-colors ${
+              canUndo ? 'text-white hover:bg-white/10' : 'text-gray-600 cursor-not-allowed'
+            }`}
+            onClick={onUndo}
+            disabled={!canUndo}
+            title="Undo move"
+          >
+            <Undo className="w-4 h-4" />
+          </motion.button>
+
+          <motion.button
+            variants={buttonVariants}
+            initial="enabled"
+            whileHover={canRedo ? "hover" : "disabled"}
+            whileTap={canRedo ? "tap" : "disabled"}
+            animate={canRedo ? "enabled" : "disabled"}
+            className={`p-2 rounded-md transition-colors ${
+              canRedo ? 'text-white hover:bg-white/10' : 'text-gray-600 cursor-not-allowed'
+            }`}
+            onClick={onRedo}
+            disabled={!canRedo}
+            title="Redo move"
+          >
+            <Redo className="w-4 h-4" />
+          </motion.button>
         </div>
-      </motion.button>
 
-      {/* Redo Button */}
-      <motion.button
-        variants={buttonVariants}
-        initial="enabled"
-        whileHover={canRedo ? "hover" : "disabled"}
-        whileTap={canRedo ? "tap" : "disabled"}
-        animate={canRedo ? "enabled" : "disabled"}
-        className={getButtonClasses("from-blue-600 to-blue-700", canRedo)}
-        onClick={onRedo}
-        disabled={!canRedo}
-        title="Redo move"
-      >
-        <div className="flex items-center gap-2">
-          <Redo className="w-5 h-5" />
-          <span className="hidden sm:inline text-sm">Redo</span>
-        </div>
-      </motion.button>
+        {/* New Game */}
+        {onNewGame && (
+          <motion.button
+            variants={buttonVariants}
+            initial="enabled"
+            whileHover="hover"
+            whileTap="tap"
+            animate="enabled"
+            className="p-2 rounded-md bg-gradient-to-r from-orange-600 to-red-600 text-white hover:from-orange-700 hover:to-red-700 transition-all"
+            onClick={onNewGame}
+            title="New game"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </motion.button>
+        )}
 
-      {/* New Game Button */}
-      {onNewGame && (
-        <motion.button
-          variants={buttonVariants}
-          initial="enabled"
-          whileHover="hover"
-          whileTap="tap"
-          animate="enabled"
-          className={getButtonClasses("from-orange-600 to-red-600", true)}
-          onClick={onNewGame}
-          title="Start a new game"
-        >
-          <div className="flex items-center gap-2">
-            <RotateCcw className="w-5 h-5" />
-            <span className="hidden sm:inline text-sm">New Game</span>
-          </div>
-        </motion.button>
-      )}
+        {/* Pause/Play */}
+        {onTogglePause && (
+          <motion.button
+            variants={buttonVariants}
+            initial="enabled"
+            whileHover="hover"
+            whileTap="tap"
+            animate="enabled"
+            className={`p-2 rounded-md text-white transition-all ${
+              isPaused 
+                ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700' 
+                : 'bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700'
+            }`}
+            onClick={onTogglePause}
+            title={isPaused ? "Resume game" : "Pause game"}
+          >
+            {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+          </motion.button>
+        )}
+      </div>
 
-      {/* Pause/Play Button */}
-      {onTogglePause && (
-        <motion.button
-          variants={buttonVariants}
-          initial="enabled"
-          whileHover="hover"
-          whileTap="tap"
-          animate="enabled"
-          className={getButtonClasses(isPaused ? "from-green-600 to-emerald-600" : "from-yellow-600 to-orange-600", true)}
-          onClick={onTogglePause}
-          title={isPaused ? "Resume game" : "Pause game"}
-        >
-          <div className="flex items-center gap-2">
-            {isPaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
-            <span className="hidden sm:inline text-sm">{isPaused ? "Resume" : "Pause"}</span>
-          </div>
-        </motion.button>
-      )}
-
-      {/* Analyze Button */}
-      {onAnalyze && (
-        <motion.button
-          variants={buttonVariants}
-          initial="enabled"
-          whileHover="hover"
-          whileTap="tap"
-          animate={isAnalyzing ? "disabled" : "enabled"}
-          className={getButtonClasses("from-purple-600 to-indigo-600", !isAnalyzing)}
-          onClick={onAnalyze}
-          disabled={isAnalyzing}
-          title="Analyze current position"
-        >
-          <div className="flex items-center gap-2">
+      {/* Secondary Actions - Dropdown style */}
+      <div className="flex items-center gap-1">
+        {/* Analyze */}
+        {onAnalyze && (
+          <motion.button
+            variants={buttonVariants}
+            initial="enabled"
+            whileHover="hover"
+            whileTap="tap"
+            animate={isAnalyzing ? "disabled" : "enabled"}
+            className={`p-2 rounded-md transition-all ${
+              isAnalyzing 
+                ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
+                : 'text-white hover:bg-white/10'
+            }`}
+            onClick={onAnalyze}
+            disabled={isAnalyzing}
+            title="Analyze position"
+          >
             {isAnalyzing ? (
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
               >
-                <RotateCcw className="w-5 h-5" />
+                <RotateCcw className="w-4 h-4" />
               </motion.div>
             ) : (
-              <RotateCcw className="w-5 h-5" />
+              <RotateCcw className="w-4 h-4" />
             )}
-            <span className="hidden sm:inline text-sm">{isAnalyzing ? "Analyzing..." : "Analyze"}</span>
-          </div>
-        </motion.button>
-      )}
+          </motion.button>
+        )}
 
-      {/* Save Button */}
-      <motion.button
-        variants={buttonVariants}
-        initial="enabled"
-        whileHover="hover"
-        whileTap="tap"
-        animate="enabled"
-        className={getButtonClasses("from-green-600 to-emerald-600", true)}
-        onClick={onSave}
-        title="Save game (PGN format)"
-      >
-        <div className="flex items-center gap-2">
-          <Save className="w-5 h-5" />
-          <span className="hidden sm:inline text-sm">Save</span>
+        {/* Save/Download Group */}
+        <div className="flex items-center bg-white/5 rounded-lg p-1">
+          <motion.button
+            variants={buttonVariants}
+            initial="enabled"
+            whileHover="hover"
+            whileTap="tap"
+            animate="enabled"
+            className="p-2 rounded-md text-white hover:bg-white/10 transition-colors"
+            onClick={onSave}
+            title="Save game"
+          >
+            <Save className="w-4 h-4" />
+          </motion.button>
+
+          <motion.button
+            variants={buttonVariants}
+            initial="enabled"
+            whileHover="hover"
+            whileTap="tap"
+            animate="enabled"
+            className="p-2 rounded-md text-white hover:bg-white/10 transition-colors"
+            onClick={onSave}
+            title="Download PGN"
+          >
+            <Download className="w-4 h-4" />
+          </motion.button>
         </div>
-      </motion.button>
 
-      {/* Download Button */}
-      <motion.button
-        variants={buttonVariants}
-        initial="enabled"
-        whileHover="hover"
-        whileTap="tap"
-        animate="enabled"
-        className={getButtonClasses("from-cyan-600 to-blue-600", true)}
-        onClick={onSave}
-        title="Download game as PGN"
-      >
-        <div className="flex items-center gap-2">
-          <Download className="w-5 h-5" />
-          <span className="hidden sm:inline text-sm">Download</span>
-        </div>
-      </motion.button>
-
-      {/* Share Button */}
-      {onShare && (
-        <motion.button
-          variants={buttonVariants}
-          initial="enabled"
-          whileHover="hover"
-          whileTap="tap"
-          animate="enabled"
-          className={getButtonClasses("from-pink-600 to-purple-600", true)}
-          onClick={onShare}
-          title="Share game"
-        >
-          <div className="flex items-center gap-2">
-            <Share2 className="w-5 h-5" />
-            <span className="hidden sm:inline text-sm">Share</span>
-          </div>
-        </motion.button>
-      )}
+        {/* Share */}
+        {onShare && (
+          <motion.button
+            variants={buttonVariants}
+            initial="enabled"
+            whileHover="hover"
+            whileTap="tap"
+            animate="enabled"
+            className="p-2 rounded-md text-white hover:bg-white/10 transition-colors"
+            onClick={onShare}
+            title="Share game"
+          >
+            <Share2 className="w-4 h-4" />
+          </motion.button>
+        )}
+      </div>
     </motion.div>
   );
 };

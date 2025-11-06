@@ -1,16 +1,59 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { ChessBoard } from '../ChessBoard';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { GameControls } from '../GameControls';
-import { GameMode, ThemeType } from '../../types';
-import { Trophy, Clock, Target } from 'lucide-react';
+import { GameMode, ThemeType, Piece } from '../../types';
+import { Move } from '../../types/game';
+import { Trophy, Clock, Target, Info, History, BarChart3, X, Menu } from 'lucide-react';
+import { MoveHistory } from './MoveHistory';
+import { WinProbability } from './WinProbability';
+import { CapturedPieces } from '../CapturedPieces';
 
 interface GameLayoutProps {
   gameMode: GameMode;
   theme: ThemeType;
+  board: (Piece | null)[][];
+  turn: 'white' | 'black';
+  isThinking: boolean;
+  winProbability: { white: number; black: number };
+  capturedPieces: Piece[];
+  moveHistory: Move[];
+  historyIndex: number;
+  gameStats: {
+    accuracy: number;
+    mistakes: number;
+    averageTime: number;
+    openingName: string;
+  };
+  children?: React.ReactNode;
 }
 
-export const GameLayout: React.FC<GameLayoutProps> = ({ gameMode, theme }) => {
+export const GameLayout: React.FC<GameLayoutProps> = ({
+  gameMode,
+  theme,
+  turn,
+  isThinking,
+  winProbability,
+  capturedPieces,
+  moveHistory,
+  historyIndex,
+  gameStats,
+  children
+}) => {
+  const [activeTab, setActiveTab] = useState<'info' | 'history' | 'stats'>('info');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isLargeScreen, setIsLargeScreen] = useState(false);
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsLargeScreen(window.innerWidth >= 1024);
+    };
+    
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
   const getDifficultyColor = (mode: GameMode) => {
     switch (mode) {
       case 'easy': return 'from-green-500/20 to-emerald-500/20 border-green-500/30';
@@ -32,124 +75,243 @@ export const GameLayout: React.FC<GameLayoutProps> = ({ gameMode, theme }) => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-zinc-950 via-zinc-900 to-black relative overflow-hidden">
+    <div className="h-screen w-full bg-gradient-to-br from-zinc-950 via-zinc-900 to-black flex flex-col overflow-hidden">
       {/* Background decoration */}
-      <div className="absolute inset-0">
-        <div className="absolute top-0 left-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-r from-cyan-500/5 to-purple-500/5 rounded-full blur-3xl" />
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-0 left-0 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl" />
       </div>
 
-      <div className="relative z-10 px-2 py-4 sm:p-6">
-        {/* Header with game info */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-6xl mx-auto mb-6"
-        >
-          <div className="bg-black/40 backdrop-blur-md rounded-2xl border border-white/10 p-4">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <motion.div
-                  className={`p-3 rounded-xl bg-gradient-to-br ${getDifficultyColor(gameMode)} border`}
-                  whileHover={{ scale: 1.05 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <Trophy className="w-6 h-6 text-white" />
-                </motion.div>
-                <div>
-                  <h2 className="text-xl font-bold text-white">Chess Arena</h2>
-                  <p className="text-sm text-gray-400">Mode: {getDifficultyLabel(gameMode)}</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-6">
-                <div className="flex items-center gap-2 text-gray-300">
-                  <Clock className="w-4 h-4" />
-                  <span className="text-sm">Unlimited</span>
-                </div>
-                <div className="flex items-center gap-2 text-gray-300">
-                  <Target className="w-4 h-4" />
-                  <span className="text-sm">Training</span>
-                </div>
-              </div>
+      {/* Fixed Header */}
+      <motion.header
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative z-10 bg-black/40 backdrop-blur-md border-b border-white/10 px-4 py-3"
+      >
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
+          <div className="flex items-center gap-3">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="lg:hidden p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+            >
+              {isSidebarOpen ? <X className="w-5 h-5 text-white" /> : <Menu className="w-5 h-5 text-white" />}
+            </motion.button>
+            
+            <motion.div
+              className={`p-2 rounded-lg bg-gradient-to-br ${getDifficultyColor(gameMode)} border`}
+              whileHover={{ scale: 1.05 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Trophy className="w-5 h-5 text-white" />
+            </motion.div>
+            <div>
+              <h1 className="text-lg font-bold text-white">Chess Arena</h1>
+              <p className="text-xs text-gray-400">{getDifficultyLabel(gameMode)}</p>
             </div>
           </div>
-        </motion.div>
-
-        {/* Main game area */}
-        <div className="max-w-6xl mx-auto grid lg:grid-cols-3 gap-6">
-          {/* Left sidebar - Game info */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.1 }}
-            className="lg:col-span-1 space-y-4"
-          >
-            <div className="bg-black/30 backdrop-blur-md rounded-2xl border border-white/10 p-4">
-              <h3 className="text-lg font-semibold text-white mb-3">Game Info</h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between text-gray-300">
-                  <span>Your Color:</span>
-                  <span className="text-white font-medium">White</span>
-                </div>
-                <div className="flex justify-between text-gray-300">
-                  <span>AI Color:</span>
-                  <span className="text-white font-medium">Black</span>
-                </div>
-                <div className="flex justify-between text-gray-300">
-                  <span>Theme:</span>
-                  <span className="text-white font-medium capitalize">{theme}</span>
-                </div>
-              </div>
+          
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center gap-2 text-gray-300">
+              <Clock className="w-4 h-4" />
+              <span className="text-sm">{isThinking ? "AI Thinking..." : `${turn.charAt(0).toUpperCase() + turn.slice(1)}'s Turn`}</span>
             </div>
+            <div className="hidden sm:flex items-center gap-2 text-gray-300">
+              <Target className="w-4 h-4" />
+              <span className="text-sm">Training</span>
+            </div>
+          </div>
+        </div>
+      </motion.header>
 
-            <div className="bg-black/30 backdrop-blur-md rounded-2xl border border-white/10 p-4">
-              <h3 className="text-lg font-semibold text-white mb-3">Quick Stats</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-300 text-sm">Move Quality</span>
-                  <div className="flex gap-1">
-                    {[...Array(5)].map((_, i) => (
-                      <div
-                        key={i}
-                        className={`w-2 h-2 rounded-full ${
-                          i < 3 ? 'bg-green-500' : 'bg-gray-600'
-                        }`}
+      {/* Main Content Area */}
+      <div className="flex-1 flex relative z-10 overflow-hidden">
+        {/* Sidebar - Collapsible */}
+        <AnimatePresence>
+          {(isSidebarOpen || isLargeScreen) && (
+            <motion.aside
+              initial={{ x: -300, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -300, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="absolute lg:relative w-80 h-full bg-black/40 backdrop-blur-md border-r border-white/10 flex flex-col"
+            >
+              {/* Tab Navigation */}
+              <div className="flex border-b border-white/10">
+                {[
+                  { id: 'info', label: 'Info', icon: Info },
+                  { id: 'history', label: 'History', icon: History },
+                  { id: 'stats', label: 'Stats', icon: BarChart3 }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as 'info' | 'history' | 'stats')}
+                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-3 text-sm font-medium transition-colors
+                      ${activeTab === tab.id 
+                        ? 'bg-white/10 text-white border-b-2 border-cyan-500' 
+                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      }`}
+                  >
+                    <tab.icon className="w-4 h-4" />
+                    <span className="hidden sm:inline">{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Tab Content */}
+              <div className="flex-1 overflow-y-auto p-4">
+                <AnimatePresence mode="wait">
+                  {activeTab === 'info' && (
+                    <motion.div
+                      key="info"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="space-y-4"
+                    >
+                      <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                        <h3 className="text-sm font-semibold text-white mb-3">Game Details</h3>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between text-gray-300">
+                            <span>Your Color:</span>
+                            <span className="text-white font-medium">White</span>
+                          </div>
+                          <div className="flex justify-between text-gray-300">
+                            <span>AI Color:</span>
+                            <span className="text-white font-medium">Black</span>
+                          </div>
+                          <div className="flex justify-between text-gray-300">
+                            <span>Theme:</span>
+                            <span className="text-white font-medium capitalize">{theme}</span>
+                          </div>
+                          <div className="flex justify-between text-gray-300">
+                            <span>Moves:</span>
+                            <span className="text-white font-medium">{moveHistory.length}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                        <h3 className="text-sm font-semibold text-white mb-3">Win Probability</h3>
+                        <WinProbability whiteProb={winProbability.white} blackProb={winProbability.black} />
+                      </div>
+
+                      <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                        <h3 className="text-sm font-semibold text-white mb-3">Captured Pieces</h3>
+                        <div className="space-y-2">
+                          <CapturedPieces 
+                            pieces={capturedPieces.filter(p => p.color === 'white')} 
+                            side="white" 
+                            theme={theme} 
+                          />
+                          <CapturedPieces 
+                            pieces={capturedPieces.filter(p => p.color === 'black')} 
+                            side="black" 
+                            theme={theme} 
+                          />
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {activeTab === 'history' && (
+                    <motion.div
+                      key="history"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                    >
+                      <MoveHistory 
+                        moves={moveHistory} 
+                        currentMoveIndex={historyIndex}
                       />
-                    ))}
-                  </div>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-300 text-sm">Accuracy</span>
-                  <span className="text-white font-medium">87%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-300 text-sm">Time Avg</span>
-                  <span className="text-white font-medium">12s</span>
-                </div>
-              </div>
-            </div>
-          </motion.div>
+                    </motion.div>
+                  )}
 
-          {/* Center - Chess Board */}
+                  {activeTab === 'stats' && (
+                    <motion.div
+                      key="stats"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="space-y-4"
+                    >
+                      <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                        <h3 className="text-sm font-semibold text-white mb-3">Performance</h3>
+                        <div className="space-y-3">
+                          <div>
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="text-gray-300">Accuracy</span>
+                              <span className="text-white font-medium">{gameStats.accuracy}%</span>
+                            </div>
+                            <div className="w-full bg-gray-700 rounded-full h-2">
+                              <div 
+                                className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full transition-all duration-500"
+                                style={{ width: `${gameStats.accuracy}%` }}
+                              />
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <div className="flex justify-between text-sm mb-1">
+                              <span className="text-gray-300">Move Quality</span>
+                              <span className="text-white font-medium">Good</span>
+                            </div>
+                            <div className="flex gap-1">
+                              {[...Array(5)].map((_, i) => (
+                                <div
+                                  key={i}
+                                  className={`flex-1 h-2 rounded-full ${
+                                    i < 3 ? 'bg-green-500' : 'bg-gray-600'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                        <h3 className="text-sm font-semibold text-white mb-3">Statistics</h3>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between text-gray-300">
+                            <span>Average Time:</span>
+                            <span className="text-white font-medium">{gameStats.averageTime}s</span>
+                          </div>
+                          <div className="flex justify-between text-gray-300">
+                            <span>Mistakes:</span>
+                            <span className="text-white font-medium">{gameStats.mistakes}</span>
+                          </div>
+                          <div className="flex justify-between text-gray-300">
+                            <span>Opening:</span>
+                            <span className="text-white font-medium">{gameStats.openingName}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
+
+        {/* Main Game Area */}
+        <main className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex items-center justify-center p-4">
+            <div className="w-full max-w-2xl">
+              {children}
+            </div>
+          </div>
+
+          {/* Fixed Bottom Controls */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="lg:col-span-2"
+            className="bg-black/40 backdrop-blur-md border-t border-white/10 p-4"
           >
-            <div className="bg-gradient-to-br from-black/40 to-black/20 backdrop-blur-md rounded-2xl border border-white/10 p-6">
-              <ChessBoard gameMode={gameMode} theme={theme} />
-            </div>
-            
-            {/* Game Controls */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="mt-6"
-            >
+            <div className="max-w-4xl mx-auto">
               <GameControls
                 onUndo={() => {}}
                 onRedo={() => {}}
@@ -163,9 +325,9 @@ export const GameLayout: React.FC<GameLayoutProps> = ({ gameMode, theme }) => {
                 isPaused={false}
                 isAnalyzing={false}
               />
-            </motion.div>
+            </div>
           </motion.div>
-        </div>
+        </main>
       </div>
     </div>
   );

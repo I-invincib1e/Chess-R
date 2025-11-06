@@ -3,7 +3,7 @@ import { HomePage } from './components/home/HomePage';
 import { SettingsPage } from './components/settings/SettingsPage';
 import { Navigation } from './components/Navigation';
 import { GameSetupFlow } from './components/setup/GameSetupFlow';
-import { GameLayout } from './components/game/GameLayout';
+import { GameContainer } from './components/game/GameContainer';
 import { ThemeType } from './types/theme';
 import { GamePreferences } from './types/game';
 import { LoadingSpinner } from './components/LoadingSpinner';
@@ -43,7 +43,7 @@ export default function App() {
       )}
       
       {currentPage === 'game' && gamePreferences && (
-        <GameLayout gameMode={gamePreferences.difficulty} theme={theme} />
+        <GameContainer gameMode={gamePreferences.difficulty} theme={theme} />
       )}
 
       {showSetup && (
