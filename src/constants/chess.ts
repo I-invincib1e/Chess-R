@@ -11,12 +11,12 @@ export const PIECE_VALUES = {
   king: 20000
 } as const;
 
-// AI search depth by difficulty
+// AI search depth by difficulty (increased with optimizations)
 export const AI_DEPTH = {
   easy: 2,
-  medium: 3,
-  hard: 4,
-  grandmaster: 5
+  medium: 4,
+  hard: 5,
+  grandmaster: 6
 } as const;
 
 // AI randomization factor by difficulty
